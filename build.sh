@@ -1,5 +1,7 @@
 #!/bin/bash
 
+curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-1.5.7
+
 # 颜色定义
 yellow='\033[0;33m'
 white='\033[0m'
@@ -8,9 +10,10 @@ gre='\e[0;32m'
 
 # 路径定义
 ZIMG=./out/arch/arm64/boot/Image
-OUTPUT_DIR=./../Avid_release
+OUTPUT_DIR=./../Nabu_Release
 DTB_SOURCE_DIR=./out/arch/arm64/boot/dts/qcom
 DTB_TARGET=$OUTPUT_DIR/dtb
+KERNEL_SRC=$(pwd)
 
 # 参数处理
 no_mkclean=false
@@ -50,16 +53,16 @@ EOF
 done
 
 # 环境设置
-export CLANG_PATH=/home/avider/build_toolchain/clang-r536225
-export PATH=${CLANG_PATH}/bin:${PATH}
+# export CLANG_PATH=/home/avider/build_toolchain/clang-r536225
+# export PATH=${CLANG_PATH}/bin:${PATH}
 
 export ARCH=arm64
-export KBUILD_BUILD_HOST="wsl2"
-export KBUILD_BUILD_USER="avider"
+# export KBUILD_BUILD_HOST="wsl2"
+# export KBUILD_BUILD_USER="avider"
 
 touch .scmversion
 current_date=$(date +"%Y%m%d")
-export LOCALVERSION="-Avid-$current_date"
+export LOCALVERSION="-$current_date"
 $with_ksu && export LOCALVERSION="${LOCALVERSION}-ksu"
 
 
@@ -113,8 +116,8 @@ make -j$(nproc --all) \
     STRIP=llvm-strip \
     OBJCOPY=llvm-objcopy \
     OBJDUMP=llvm-objdump \
-    CROSS_COMPILE="/home/avider/build_toolchain/arm-gnu-toolchain-14.3.rel1-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-" \
-    CROSS_COMPILE_ARM32="/home/avider/build_toolchain/arm-gnu-toolchain-14.3.Rel1-x86_64-arm-none-linux-gnueabihf/bin/arm-none-linux-gnueabihf-" \
+    CROSS_COMPILE="aarch64-linux-gnu-" \
+    CROSS_COMPILE_ARM32="arm-linux-gnueabihf-" \
     ${make_flags}
 
 exit_code=$?
@@ -124,6 +127,25 @@ Diff=$(($End - $Start))
 # 处理编译结果
 if [ -f $ZIMG ]; then
     mkdir -p $OUTPUT_DIR
+
+    Patch_KPM(){
+    cd out/arch/arm64/boot
+    curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU_patch/refs/heads/main/kpm/patch_linux" -o patch
+    chmod +x patch
+    ./patch
+    if [ $? -eq 0 ]; then
+        rm -f Image
+        mv oImage Image
+        echo "Image file repair complete"
+    else
+        echo "KPM Patch Failed, Use Original Image"
+    fi
+
+    cd $KERNEL_SRC
+
+    }
+
+    Patch_KPM # 仅 SukiSU-Ultra 使用。
     
     # 复制内核镜像
     cp -f ./out/arch/arm64/boot/Image $OUTPUT_DIR/Image
